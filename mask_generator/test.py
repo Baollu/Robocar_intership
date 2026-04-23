@@ -50,8 +50,8 @@ def transform_image(image_name, debug = False):
 
     if debug:
         print(f"Output min/max: {output.min():.4f} / {output.max():.4f}")
-        print(f"Classe 0 (non-route): {(res == 0).sum().item()} pixels")
-        print(f"Classe 1 (route):     {(res == 1).sum().item()} pixels")
+        print(f"Class 0 (non-road): {(res == 0).sum().item()} pixels")
+        print(f"Class 1 (road):     {(res == 1).sum().item()} pixels")
         show_image(res[0].to(torch.float32) * 255)
 
     return res[0]

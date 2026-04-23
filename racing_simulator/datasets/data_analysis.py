@@ -4,18 +4,18 @@ import pandas as pd
 
 df = pd.read_csv("data_clean_complete_4_loop.csv", header=0, index_col=0)
 
-print("Aperçu des données :")
+print("Data preview:")
 print(df.head())
 
-print("\nStatistiques descriptives :")
+print("\nDescriptive statistics:")
 print(df.describe())
 
-print("\nInformations sur les données :")
+print("\nDataset info:")
 print(df.info())
 
-# Vérifier le nombre de valeurs manquantes dans chaque colonne
+# Count missing values per column
 missing_values = df.isna().sum()
 
-# Afficher uniquement les colonnes qui ont des valeurs manquantes
-print("Nombre de valeurs manquantes par colonne :")
+# Show only columns that have missing values
+print("Missing values per column:")
 print(missing_values[missing_values > 0])

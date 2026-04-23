@@ -9,7 +9,7 @@ origin = (width // 2, height - 1)
 
 num_rays = 50
 max_length = 500
-angle_range = 90  # en degrés
+angle_range = 90  # in degrees
 start_angle = -(angle_range // 2) + 90
 
 distances = []
@@ -48,7 +48,7 @@ for i in range(num_rays):
 
 print("Distances:", distances)
 
-# Affichage
+# Display
 cv2.imshow("Raycasting", img)
 cv2.waitKey(10000)
 cv2.destroyAllWindows()

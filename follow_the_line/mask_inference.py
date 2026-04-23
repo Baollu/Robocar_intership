@@ -16,17 +16,10 @@ except ImportError:
 MASK_GEN_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'mask_generator'))
 sys.path.insert(0, MASK_GEN_DIR)
 
-from model import SegNet  # noqa: E402
+from model import SegNet
 
-# ── Résolution attendue par le modèle ─────────────────────────────────────
 IMAGE_WIDTH  = 256
 IMAGE_HEIGHT = 128
-
-# ── Détection automatique de la plateforme ────────────────────────────────
-# Caméra par défaut selon la plateforme :
-#   aarch64 (Jetson Nano) → "oak" si DepthAI disponible, sinon "csi"
-#   x86_64  (PC)          → "oak" si DepthAI disponible, sinon "usb"
-# Surcharge : CAMERA_TYPE=usb python mask_inference.py
 _IS_JETSON = platform.machine() == "aarch64"
 
 if _DEPTHAI_AVAILABLE:
@@ -38,9 +31,9 @@ else:
 
 CAMERA_TYPE = os.environ.get("CAMERA_TYPE", _default_camera)
 
-print(f"Plateforme : {'Jetson Nano (aarch64)' if _IS_JETSON else 'PC (x86_64)'} — caméra : {CAMERA_TYPE}")
+print(f"Platform: {'Jetson Nano (aarch64)' if _IS_JETSON else 'PC (x86_64)'} — camera: {CAMERA_TYPE}")
 
-# ── GStreamer pipeline pour la caméra CSI de la Jetson Nano ───────────────
+# ── GStreamer pipeline for the Jetson Nano CSI camera ────────────────────
 CSI_PIPELINE = (
     "nvarguscamerasrc ! "
     "video/x-raw(memory:NVMM), width=640, height=480, format=NV12, framerate=30/1 ! "
@@ -52,7 +45,7 @@ CSI_PIPELINE = (
 def _find_latest_checkpoint(weights_dir: str) -> str:
     checkpoints = sorted(f for f in os.listdir(weights_dir) if f.endswith(".pth.tar"))
     if not checkpoints:
-        raise FileNotFoundError(f"Aucun checkpoint trouvé dans {weights_dir}. Lance train.py d'abord.")
+        raise FileNotFoundError(f"No checkpoint found in {weights_dir}. Run train.py first.")
     return os.path.join(weights_dir, checkpoints[-1])
 
 
@@ -65,7 +58,7 @@ def load_model() -> SegNet:
 
     weights_dir = os.path.join(MASK_GEN_DIR, "weights")
     ckpt_path   = _find_latest_checkpoint(weights_dir)
-    print(f"Chargement du checkpoint : {ckpt_path}")
+    print(f"Loading checkpoint: {ckpt_path}")
 
     checkpoint = torch.load(ckpt_path, map_location="cpu")
     model.load_state_dict(checkpoint["state_dict"])
@@ -77,19 +70,19 @@ def load_model() -> SegNet:
             dummy = torch.zeros(1, 3, IMAGE_HEIGHT, IMAGE_WIDTH).cuda()
             with torch.no_grad():
                 model(dummy)
-            torch.cuda.synchronize()  # force l'exécution GPU pour détecter les erreurs maintenant
-            print("GPU détecté — inférence sur CUDA")
+            torch.cuda.synchronize()  # force GPU execution to catch errors early
+            print("GPU detected — running inference on CUDA")
         except RuntimeError:
-            print("GPU incompatible avec cette version de PyTorch — fallback CPU")
+            print("GPU incompatible with this PyTorch version — falling back to CPU")
             model = model.cpu()
     else:
-        print("CUDA non disponible — inférence sur CPU")
+        print("CUDA not available — running inference on CPU")
 
     return model
 
 
 def open_camera(camera_type: str) -> cv2.VideoCapture:
-    """Ouvre une caméra CSI ou USB (pas OAK-D — géré séparément)."""
+    """Open a CSI or USB camera (OAK-D is handled separately)."""
     if camera_type == "csi":
         cap = cv2.VideoCapture(CSI_PIPELINE, cv2.CAP_GSTREAMER)
     else:
@@ -97,10 +90,10 @@ def open_camera(camera_type: str) -> cv2.VideoCapture:
 
     if not cap.isOpened():
         raise RuntimeError(
-            f"Impossible d'ouvrir la caméra '{camera_type}'.\n"
-            "  CSI : vérifie que nvarguscamerasrc est disponible (JetPack installé).\n"
-            "  USB : vérifie que /dev/video0 existe.\n"
-            "  Surcharge possible : CAMERA_TYPE=usb python mask_inference.py"
+            f"Cannot open camera '{camera_type}'.\n"
+            "  CSI: check that nvarguscamerasrc is available (JetPack installed).\n"
+            "  USB: check that /dev/video0 exists.\n"
+            "  Override: CAMERA_TYPE=usb python mask_inference.py"
         )
     return cap
 
@@ -125,7 +118,7 @@ def preprocess(frame: np.ndarray, device: torch.device) -> torch.Tensor:
 
 
 def infer_mask(model: SegNet, tensor: torch.Tensor) -> np.ndarray:
-    """Retourne un masque binaire numpy uint8 (0 = non-route, 255 = route)."""
+    """Return a binary numpy uint8 mask (0 = non-road, 255 = road)."""
     with torch.no_grad():
         output = model(tensor)
     mask_idx = torch.argmax(output, dim=1)[0]
@@ -134,7 +127,7 @@ def infer_mask(model: SegNet, tensor: torch.Tensor) -> np.ndarray:
 
 def _run_oak(model: torch.nn.Module, device: torch.device, display: bool) -> None:
     pipeline = _build_oak_pipeline()
-    print("Appuie sur 'q' pour quitter.")
+    print("Press 'q' to quit.")
     with dai.Device(pipeline) as dev:
         q = dev.getOutputQueue(name="rgb", maxSize=4, blocking=False)
         while True:
@@ -154,11 +147,11 @@ def _run_oak(model: torch.nn.Module, device: torch.device, display: bool) -> Non
 
 def _run_cv2(model: torch.nn.Module, device: torch.device, display: bool) -> None:
     cap = open_camera(CAMERA_TYPE)
-    print("Appuie sur 'q' pour quitter.")
+    print("Press 'q' to quit.")
     while True:
         ret, frame = cap.read()
         if not ret:
-            print("Erreur : impossible de lire la caméra.")
+            print("Error: cannot read from camera.")
             break
 
         tensor = preprocess(frame, device)
@@ -182,7 +175,7 @@ def run_live(display: bool = True) -> None:
 
     if CAMERA_TYPE == "oak":
         if not _DEPTHAI_AVAILABLE:
-            raise RuntimeError("DepthAI non installé. Lance : pip install depthai")
+            raise RuntimeError("DepthAI not installed. Run: pip install depthai")
         _run_oak(model, device, display)
     else:
         _run_cv2(model, device, display)

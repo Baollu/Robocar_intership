@@ -40,7 +40,7 @@ train_mask_path = "DatasetSimuator/MaskCamera"
 model_json = load_model_json()
 model = SegNet(in_chn=model_json['in_chn'], out_chn=model_json['out_chn'], BN_momentum=model_json['bn_momentum'])
 
-RESUME_CHECKPOINT = None  # mettre le chemin vers un .pth.tar pour reprendre l'entraînement
+RESUME_CHECKPOINT = None  # set to a .pth.tar path to resume training
 if RESUME_CHECKPOINT:
     checkpoint = torch.load(RESUME_CHECKPOINT, weights_only=True)
     model.load_state_dict(checkpoint["state_dict"])
