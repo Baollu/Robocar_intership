@@ -10,10 +10,15 @@ echo "Detected platform: $ARCH"
 if [ "$ARCH" = "aarch64" ]; then
     echo "=== Jetson Nano — installing dependencies ==="
 
-    PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')")
-    echo "Python version: $(python3 --version)"
+    # Use the exact Python that will run the project
+    PYTHON=$(which python3)
+    PIP="$PYTHON -m pip"
+    PY_VER=$($PYTHON -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')")
+    echo "Python binary : $PYTHON"
+    echo "Python version: $($PYTHON --version)"
+    echo "pip command   : $PIP"
 
-    if ! python3 -c "import torch" 2>/dev/null; then
+    if ! $PYTHON -c "import torch" 2>/dev/null; then
         echo "Downloading PyTorch for ARM (Python $PY_VER)..."
 
         if [ "$PY_VER" = "36" ]; then
@@ -31,18 +36,18 @@ if [ "$ARCH" = "aarch64" ]; then
             exit 1
         fi
 
-        wget -q "$TORCH_URL" -O "$TORCH_WHEEL"
-        pip3 install "$TORCH_WHEEL"
+        wget "$TORCH_URL" -O "$TORCH_WHEEL"
+        $PIP install "$TORCH_WHEEL"
         rm "$TORCH_WHEEL"
     else
         echo "PyTorch already installed, skipping."
     fi
 
-    if ! python3 -c "import torchvision" 2>/dev/null; then
-        pip3 install "torchvision==$TORCHVISION_VER"
+    if ! $PYTHON -c "import torchvision" 2>/dev/null; then
+        $PIP install "torchvision==$TORCHVISION_VER"
     fi
 
-    pip3 install -r requirements_jetson.txt
+    $PIP install -r requirements_jetson.txt
 
 else
     echo "=== PC (x86_64) — installing dependencies ==="
