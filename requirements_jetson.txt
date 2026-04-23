@@ -1,0 +1,16 @@
+# ── Jetson Nano (aarch64 / JetPack 4.6) ───────────────────────────────────
+# PyTorch doit être installé MANUELLEMENT (wheel ARM non disponible sur PyPI)
+# Le script setup.sh s'en charge automatiquement.
+
+# follow_the_line
+depthai==2.21.2.0
+opencv-python==4.5.5.64
+numpy==1.19.4
+
+# mask_generator — torch et torchvision installés par setup.sh
+# torchvision==0.9.0  ← installé depuis le wheel NVIDIA
+
+# racing_simulator
+mlagents==0.28.0
+pynput==1.7.6
+pandas==1.3.5
