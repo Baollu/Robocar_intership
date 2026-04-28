@@ -48,9 +48,10 @@ try:
         axis_turn_max = gamepad.axis(0)  # buttom direction left
 
         # Calcul du duty cycle
-        if axis_throttle != -1:
+        # Seuil > -0.9 : les gâchettes au repos renvoient -1.0, pressées > -0.9
+        if axis_throttle > -0.9:
             duty += ((axis_throttle + 1) / 2) / duty_smoothing
-        if axis_brake != -1:
+        if axis_brake > -0.9:
             duty -= ((axis_brake + 1) / 2) / duty_smoothing
 
         if duty > MAX_DUTY_CYCLE:
