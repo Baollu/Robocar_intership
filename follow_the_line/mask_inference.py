@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import os
 import json
@@ -31,7 +32,7 @@ else:
 
 CAMERA_TYPE = os.environ.get("CAMERA_TYPE", _default_camera)
 
-print(f"Platform: {'Jetson Nano (aarch64)' if _IS_JETSON else 'PC (x86_64)'} — camera: {CAMERA_TYPE}")
+print(f"Platform: {'Jetson Nano (aarch64)' if _IS_JETSON else 'PC (x86_64)'} - camera: {CAMERA_TYPE}")
 
 # ── GStreamer pipeline for the Jetson Nano CSI camera ────────────────────
 CSI_PIPELINE = (
@@ -125,20 +126,26 @@ def infer_mask(model: SegNet, tensor: torch.Tensor) -> np.ndarray:
     return (mask_idx.cpu().numpy() * 255).astype(np.uint8)
 
 
+def apply_overlay(frame: np.ndarray, mask: np.ndarray, alpha: float = 0.4) -> np.ndarray:
+    """Blend a green overlay on road pixels (mask=255) over the resized frame."""
+    preview = cv2.resize(frame, (IMAGE_WIDTH, IMAGE_HEIGHT))
+    overlay = preview.copy()
+    overlay[mask == 255] = (0, 200, 0)
+    return cv2.addWeighted(overlay, alpha, preview, 1 - alpha, 0)
+
+
 def _run_oak(model: torch.nn.Module, device: torch.device, display: bool) -> None:
     pipeline = _build_oak_pipeline()
     print("Press 'q' to quit.")
     with dai.Device(pipeline) as dev:
         q = dev.getOutputQueue(name="rgb", maxSize=4, blocking=False)
         while True:
-            frame = q.get().getCvFrame()          # BGR numpy array
+            frame  = q.get().getCvFrame()
             tensor = preprocess(frame, device)
             mask   = infer_mask(model, tensor)
 
             if display:
-                preview = cv2.resize(frame, (IMAGE_WIDTH, IMAGE_HEIGHT))
-                cv2.imshow("Camera", preview)
-                cv2.imshow("Mask",   mask)
+                cv2.imshow("Masked Camera", apply_overlay(frame, mask))
 
             if cv2.waitKey(1) == ord("q"):
                 break
@@ -158,9 +165,7 @@ def _run_cv2(model: torch.nn.Module, device: torch.device, display: bool) -> Non
         mask   = infer_mask(model, tensor)
 
         if display:
-            preview = cv2.resize(frame, (IMAGE_WIDTH, IMAGE_HEIGHT))
-            cv2.imshow("Camera", preview)
-            cv2.imshow("Mask",   mask)
+            cv2.imshow("Masked Camera", apply_overlay(frame, mask))
 
         if cv2.waitKey(1) == ord("q"):
             break
