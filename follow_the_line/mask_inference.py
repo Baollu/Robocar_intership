@@ -134,9 +134,19 @@ def apply_overlay(frame: np.ndarray, mask: np.ndarray, alpha: float = 0.4) -> np
     return cv2.addWeighted(overlay, alpha, preview, 1 - alpha, 0)
 
 
-def _run_oak(model: torch.nn.Module, device: torch.device, display: bool) -> None:
+OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "output")
+
+
+def _save_frame(frame: np.ndarray, mask: np.ndarray, index: int) -> None:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    path = os.path.join(OUTPUT_DIR, f"frame_{index:06d}.jpg")
+    cv2.imwrite(path, apply_overlay(frame, mask))
+
+
+def _run_oak(model: torch.nn.Module, device: torch.device, save: bool) -> None:
     pipeline = _build_oak_pipeline()
-    print("Press 'q' to quit.")
+    print("Press Ctrl+C to quit.")
+    i = 0
     with dai.Device(pipeline) as dev:
         q = dev.getOutputQueue(name="rgb", maxSize=4, blocking=False)
         while True:
@@ -144,17 +154,17 @@ def _run_oak(model: torch.nn.Module, device: torch.device, display: bool) -> Non
             tensor = preprocess(frame, device)
             mask   = infer_mask(model, tensor)
 
-            if display:
-                cv2.imshow("Masked Camera", apply_overlay(frame, mask))
+            if save:
+                _save_frame(frame, mask, i)
+                if i % 30 == 0:
+                    print(f"Saved frame {i} -> {OUTPUT_DIR}")
+            i += 1
 
-            if cv2.waitKey(1) == ord("q"):
-                break
-    cv2.destroyAllWindows()
 
-
-def _run_cv2(model: torch.nn.Module, device: torch.device, display: bool) -> None:
+def _run_cv2(model: torch.nn.Module, device: torch.device, save: bool) -> None:
     cap = open_camera(CAMERA_TYPE)
-    print("Press 'q' to quit.")
+    print("Press Ctrl+C to quit.")
+    i = 0
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -164,27 +174,26 @@ def _run_cv2(model: torch.nn.Module, device: torch.device, display: bool) -> Non
         tensor = preprocess(frame, device)
         mask   = infer_mask(model, tensor)
 
-        if display:
-            cv2.imshow("Masked Camera", apply_overlay(frame, mask))
-
-        if cv2.waitKey(1) == ord("q"):
-            break
+        if save:
+            _save_frame(frame, mask, i)
+            if i % 30 == 0:
+                print(f"Saved frame {i} -> {OUTPUT_DIR}")
+        i += 1
 
     cap.release()
-    cv2.destroyAllWindows()
 
 
-def run_live(display: bool = True) -> None:
+def run_live(save: bool = True) -> None:
     model  = load_model()
     device = next(model.parameters()).device
 
     if CAMERA_TYPE == "oak":
         if not _DEPTHAI_AVAILABLE:
             raise RuntimeError("DepthAI not installed. Run: pip install depthai")
-        _run_oak(model, device, display)
+        _run_oak(model, device, save)
     else:
-        _run_cv2(model, device, display)
+        _run_cv2(model, device, save)
 
 
 if __name__ == "__main__":
-    run_live(display=True)
+    run_live(save=True)

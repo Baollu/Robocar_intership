@@ -52,7 +52,7 @@ def transform_image(image_name, debug = False):
         print(f"Output min/max: {output.min():.4f} / {output.max():.4f}")
         print(f"Class 0 (non-road): {(res == 0).sum().item()} pixels")
         print(f"Class 1 (road):     {(res == 1).sum().item()} pixels")
-        show_image(res[0].to(torch.float32) * 255)
+        show_image(res[0].to(torch.float32))
 
     return res[0]
 
