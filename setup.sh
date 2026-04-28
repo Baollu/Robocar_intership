@@ -10,8 +10,12 @@ echo "Detected platform: $ARCH"
 if [ "$ARCH" = "aarch64" ]; then
     echo "=== Jetson Nano — installing dependencies ==="
 
-    # Use the exact Python that will run the project
-    PYTHON=$(which python3)
+    # python3 points to 3.6 on JetPack — force 3.8
+    if command -v python3.8 &>/dev/null; then
+        PYTHON=$(which python3.8)
+    else
+        PYTHON=$(which python3)
+    fi
     PIP="$PYTHON -m pip"
     PY_VER=$($PYTHON -c "import sys; print(f'{sys.version_info.major}{sys.version_info.minor}')")
     echo "Python binary : $PYTHON"
@@ -67,4 +71,4 @@ fi
 
 echo ""
 echo "Installation complete. Run the project with:"
-echo "  python3 follow_the_line/mask_inference.py"
+echo "  python3.8 follow_the_line/mask_inference.py"
