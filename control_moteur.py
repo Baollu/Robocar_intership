@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from lib.Gamepad.Gamepad import Gamepad, available
 from pyvesc import VESC
 import time
