@@ -61,15 +61,9 @@ class Gamepad:
                 if not raw or len(raw) < _JS_EVENT_SIZE:
                     break
                 _, value, ev_type, number = struct.unpack(_JS_EVENT_FORMAT, raw)
-                is_init = bool(ev_type & _JS_EVENT_INIT)
                 ev_type &= ~_JS_EVENT_INIT
                 with self._lock:
                     if ev_type == _JS_EVENT_AXIS:
-                        # Skip init events: triggers (and other axes) get their
-                        # real value on the first genuine user input.
-                        # Default of -1.0 in axis() handles the resting trigger state.
-                        if is_init:
-                            continue
                         norm = value / _JS_AXIS_MAX
                         if abs(norm) < self._deadzone:
                             norm = 0.0
