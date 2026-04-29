@@ -1,35 +1,80 @@
 # -*- coding: utf-8 -*-
-"""Lance ce script sur le Jetson pour voir les valeurs brutes des axes."""
-import struct
-import glob
+"""Simule la boucle de control_moteur.py sans VESC — affiche duty et steering."""
 import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-JS_EVENT_FORMAT = 'IhBB'
-JS_EVENT_SIZE = struct.calcsize(JS_EVENT_FORMAT)
-JS_EVENT_BUTTON = 0x01
-JS_EVENT_AXIS   = 0x02
-JS_EVENT_INIT   = 0x80
+from lib.Gamepad.Gamepad import Gamepad, available
+import time
 
-devices = sorted(glob.glob('/dev/input/js*'))
-if not devices:
-    print("Aucun /dev/input/js* trouve. Branche la manette et relance.")
+MAX_DUTY_CYCLE = 0.2
+MAX_STEERING   = 0.3
+diff_steering  = 0.05
+duty_smoothing = 10
+duty_colapse   = 0.0001
+
+if not available():
+    print('Branche la manette puis relance.')
     sys.exit(1)
 
-print("Manette trouvee :", devices[0])
-print("Appuie sur les axes/boutons pour voir les valeurs (Ctrl+C pour quitter)\n")
+gamepad = Gamepad()
+gamepad.startBackgroundUpdates()
 
-with open(devices[0], 'rb') as fd:
+duty    = 0.0
+steering = 0.0
+
+print("ax0=turn_max  ax2=brake  ax5=throttle  ax6=steering  |  duty  steering_norm")
+print("-" * 75)
+
+try:
     while True:
-        raw = fd.read(JS_EVENT_SIZE)
-        if not raw:
-            break
-        ts, value, ev_type, number = struct.unpack(JS_EVENT_FORMAT, raw)
-        is_init = bool(ev_type & JS_EVENT_INIT)
-        ev_type &= ~JS_EVENT_INIT
-        if ev_type == JS_EVENT_AXIS:
-            norm = value / 32767.0
-            tag = "[INIT]" if is_init else "      "
-            print(f"{tag} AXIS {number:2d}  raw={value:7d}  norm={norm:+.4f}")
-        elif ev_type == JS_EVENT_BUTTON:
-            tag = "[INIT]" if is_init else "      "
-            print(f"{tag} BTN  {number:2d}  val={value}")
+        ax0 = gamepad.axis(0)
+        ax2 = gamepad.axis(2)
+        ax5 = gamepad.axis(5)
+        ax6 = gamepad.axis(6)
+
+        if ax5 != -1:
+            duty += ((ax5 + 1) / 2) / duty_smoothing
+        if ax2 != -1:
+            duty -= ((ax2 + 1) / 2) / duty_smoothing
+
+        if duty > MAX_DUTY_CYCLE:
+            duty = MAX_DUTY_CYCLE
+        if duty < -MAX_DUTY_CYCLE:
+            duty = -MAX_DUTY_CYCLE
+
+        if duty > 0:
+            duty = max(0, duty - duty_colapse)
+        if duty < 0:
+            duty = min(0, duty + duty_colapse)
+
+        if abs(ax0) > 0.1:
+            steering = ax0 * MAX_STEERING
+        elif abs(ax6) > 0.1:
+            target = ax6 * MAX_STEERING
+            if abs(steering - target) <= diff_steering:
+                steering = target
+            elif steering < target:
+                steering += diff_steering
+            elif steering > target:
+                steering -= diff_steering
+        else:
+            if abs(steering) < diff_steering:
+                steering = 0
+            elif steering > 0:
+                steering -= diff_steering
+            elif steering < 0:
+                steering += diff_steering
+
+        snorm = (steering / MAX_STEERING + 1) / 2
+        snorm = max(0, min(1, snorm))
+
+        print(f"ax0={ax0:+.3f}  ax2={ax2:+.3f}  ax5={ax5:+.3f}  ax6={ax6:+.3f}"
+              f"  |  duty={duty:+.4f}  steer={snorm:.3f}")
+
+        time.sleep(0.05)
+
+except KeyboardInterrupt:
+    pass
+finally:
+    gamepad.disconnect()
